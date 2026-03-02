@@ -3,9 +3,15 @@
   "slug": "amcjt-lottery-pro",
   "displayName": "专业彩票助手",
   "latest": {
-    "version": "1.0.0",
-    "publishedAt": 1772188052747,
-    "commit": "https://github.com/openclaw/skills/commit/4ffd720f31d9953eef1f073a89ca5f1f1059b9ef"
+    "version": "1.0.3",
+    "publishedAt": 1772465821467,
+    "commit": null
   },
-  "history": []
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1772188052747,
+      "commit": "https://github.com/openclaw/skills/commit/4ffd720f31d9953eef1f073a89ca5f1f1059b9ef"
+    }
+  ]
 }
