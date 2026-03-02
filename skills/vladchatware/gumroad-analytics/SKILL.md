@@ -1,105 +1,64 @@
 ---
-name: gumroad
-description: Pull analytics from Gumroad API. Track products, sales, revenue, and conversion rates. Use for daily stats, trend analysis, and correlating marketing efforts with sales.
+name: gumroad-analytics
+description: Pull daily Gumroad product/sales analytics safely (no raw PII persistence by default).
+metadata:
+  openclaw:
+    homepage: https://clawhub.ai/vladchatware/gumroad-analytics
+    requires:
+      bins: ["curl", "python3", "date"]
+      config: ["~/.config/gumroad/credentials.json"]
 ---
 
 # Gumroad Analytics
 
-Pull product and sales data from Gumroad's API for tracking and analysis.
+Collect Gumroad analytics in a privacy-conscious way.
 
-## Setup
+## What this skill does
 
-**Credentials:** `~/.config/gumroad/credentials.json`
-```json
-{
-  "access_token": "YOUR_GUMROAD_ACCESS_TOKEN",
-  "created_at": "YYYY-MM-DD"
-}
-```
+- Fetches **sales** and **products** from Gumroad API
+- Produces a **daily summary JSON** (counts + revenue totals)
+- **Does not store raw API payloads by default**
 
-Get token: Gumroad → Settings → Advanced → Applications → Create Application
+## Credentials
 
-## Quick Commands
+Expected file: `~/.config/gumroad/credentials.json`
 
-### Pull current stats
-```bash
-./scripts/gumroad-stats.sh
-```
-
-### Pull and log daily metrics
-```bash
-./scripts/gumroad-daily.sh
-```
-
-### Export sales data
-```bash
-./scripts/gumroad-sales.sh [--after YYYY-MM-DD] [--product PRODUCT_ID]
-```
-
-## API Reference
-
-**Base URL:** `https://api.gumroad.com/v2`
-
-**Auth:** `Authorization: Bearer ACCESS_TOKEN`
-
-### Key Endpoints
-
-| Endpoint | Purpose |
-|----------|---------|
-| `GET /products` | All products with sales counts |
-| `GET /sales` | Sales list with pagination |
-| `GET /sales/:id` | Single sale details |
-
-### Product Response Fields
-- `name`, `id`, `short_url`
-- `sales_count`, `sales_usd_cents`
-- `price`, `formatted_price`
-- `published`, `deleted`
-
-### Sales Response Fields
-- `id`, `email`, `product_name`
-- `price`, `gumroad_fee`
-- `created_at`, `country`
-- `variants`, `custom_fields`
-
-## Metrics Logging
-
-Daily snapshots: `memory/metrics/gumroad/YYYY-MM-DD.json`
+Example:
 
 ```json
 {
-  "date": "2026-02-17",
-  "products_count": 31,
-  "published_count": 19,
-  "top_products": [
-    {"name": "Product", "sales": 9, "revenue_cents": 3300}
-  ],
-  "totals": {
-    "sales": 100,
-    "revenue_cents": 8100
-  }
+  "access_token": "YOUR_GUMROAD_ACCESS_TOKEN"
 }
 ```
 
-## Analysis Patterns
+Harden permissions:
 
-### Conversion Rate
-```
-conversion_rate = paid_sales / total_downloads
-avg_sale_value = revenue_cents / sales_count
+```bash
+chmod 600 ~/.config/gumroad/credentials.json
 ```
 
-### Trend Detection
-Compare `revenue_cents` day-over-day. Alert if:
-- New sale (any revenue increase)
-- Revenue spike (>2x daily average)
-- First sale on a product
+## Run
 
-### Correlation Tracking
-Log engagement events (Moltbook posts, social) with timestamps. Compare to sales timing to identify what drives conversions.
+```bash
+bash skills/gumroad-analytics/scripts/fetch_metrics.sh
+```
 
-## Limitations
+Optional raw storage (explicit opt-in):
 
-- **No traffic sources via API** — visible in dashboard only
-- **No funnel data** — views/clicks not exposed
-- **Rate limit:** ~500 req/hour (generous)
+```bash
+bash skills/gumroad-analytics/scripts/fetch_metrics.sh --store-raw
+```
+
+## Output
+
+Summary file (default):
+- `memory/metrics/gumroad/YYYY-MM-DD-summary.json`
+
+Raw files (only with `--store-raw`):
+- `memory/metrics/gumroad/YYYY-MM-DD-raw-sales-redacted.json`
+- `memory/metrics/gumroad/YYYY-MM-DD-raw-products.json`
+
+## Notes
+
+- Sales raw output is redacted before writing (`email` and buyer name fields removed).
+- If you do not need raw data, avoid `--store-raw`.
