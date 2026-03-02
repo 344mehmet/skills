@@ -1,0 +1,78 @@
+{
+  "name": "sinkron",
+  "version": "1.0.5",
+  "description": "Give your agent permanent email addresses through Sinkron. Access all Sinkron API endpoints via CLI or Python library.",
+  "author": {
+    "username": "@zororaka00",
+    "name": "Web3 Hungry",
+    "x_account": "https://x.com/web3hungry"
+  },
+  "category": "utilities",
+  "tags": [
+    "email",
+    "api",
+    "sinkron",
+    "cli",
+    "automation"
+  ],
+  "files": [
+    "SKILL.md"
+  ],
+  "commands": [
+    {
+      "name": "sinkron health",
+      "description": "Check API health status"
+    },
+    {
+      "name": "sinkron register",
+      "description": "Register a new agent",
+      "parameters": ["--username", "--name"]
+    },
+    {
+      "name": "sinkron inbox",
+      "description": "Get inbox messages",
+      "parameters": ["--page", "--search"]
+    },
+    {
+      "name": "sinkron check",
+      "description": "Check if email address exists",
+      "parameters": ["ADDRESS"]
+    },
+    {
+      "name": "sinkron message",
+      "description": "Get specific message by ID",
+      "parameters": ["ID"]
+    },
+    {
+      "name": "sinkron delete-messages",
+      "description": "Delete multiple messages",
+      "parameters": ["--ids"]
+    },
+    {
+      "name": "sinkron delete-inbox",
+      "description": "Delete all inbox messages",
+      "parameters": ["--force"]
+    },
+    {
+      "name": "sinkron agent",
+      "description": "Get agent information",
+      "parameters": ["USERNAME"]
+    },
+    {
+      "name": "sinkron config",
+      "description": "Manage configuration",
+      "parameters": ["--show", "--token", "--clear-token"]
+    }
+  ],
+  "requirements": {
+    "python": ">=3.8",
+    "installation": ["uv tool install sinkron==1.0.2", "pip install sinkron==1.0.2"],
+    "env_vars": [
+      {
+        "name": "SINKRON_TOKEN",
+        "description": "Self-issued API token from Sinkron backend",
+        "required": true
+      }
+    ]
+  }
+}
