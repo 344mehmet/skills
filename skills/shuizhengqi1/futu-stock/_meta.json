@@ -3,11 +3,16 @@
   "slug": "futu-stock",
   "displayName": "Futu-Stock",
   "latest": {
-    "version": "1.0.2",
-    "publishedAt": 1771997414898,
-    "commit": "https://github.com/openclaw/skills/commit/090377baf72ac21a2d419c22add9d20fcbcd1117"
+    "version": "1.0.4",
+    "publishedAt": 1772435568508,
+    "commit": null
   },
   "history": [
+    {
+      "version": "1.0.2",
+      "publishedAt": 1771997414898,
+      "commit": "https://github.com/openclaw/skills/commit/090377baf72ac21a2d419c22add9d20fcbcd1117"
+    },
     {
       "version": "1.0.0",
       "publishedAt": 1770975696220,

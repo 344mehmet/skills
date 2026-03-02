@@ -2,7 +2,7 @@
 name: futu-stock
 description: Access Futu stock market data via MCP server - real-time quotes, K-lines, options, account info for HK/US/CN markets
 metadata: {"openclaw": {"emoji": "📈", "requires": {"bins": ["python3", "futu-mcp-server"], "env": ["FUTU_HOST", "FUTU_PORT"]}, "primaryEnv": "FUTU_HOST"}}
-version: 1.1.0
+version: 1.2.0
 ---
 
 # futu-stock Skill
@@ -268,6 +268,74 @@ python3 executor.py --call '{"tool": "get_cur_kline", "arguments": {"symbol": "H
 
 ## 七、配置
 
+### 7.1 MCP 客户端配置（推荐）
+
+在 MCP 客户端（如 CatPaw / Cursor）的 `mcp.json` 或 MCP Settings 中添加：
+
+```json
+{
+  "mcpServers": {
+    "futu-stock": {
+      "command": "futu-mcp-server",
+      "env": {
+        "FUTU_HOST": "127.0.0.1",
+        "FUTU_PORT": "11111",
+        "FUTU_TRADE_ENV": "REAL",
+        "FUTU_TRD_MARKET": "HK",
+        "FUTU_SECURITY_FIRM": "FUTUSECURITIES",
+        "FUTU_ENABLE_POSITIONS": "0",
+        "FUTU_ENABLE_TRADING": "0"
+      }
+    }
+  }
+}
+```
+
+**环境变量说明**：
+
+| 变量 | 默认值 | 说明 |
+|------|--------|------|
+| `FUTU_HOST` | `127.0.0.1` | OpenD 监听地址 |
+| `FUTU_PORT` | `11111` | OpenD 监听端口 |
+| `FUTU_TRADE_ENV` | `SIMULATE` | 交易环境：`REAL`（真实）/ `SIMULATE`（模拟） |
+| `FUTU_TRD_MARKET` | `HK` | 交易市场：`HK` / `US` / `CN` |
+| `FUTU_SECURITY_FIRM` | `FUTUSECURITIES` | 证券公司：`FUTUSECURITIES`（富途）/ `FUTUINC`（美国富途）等 |
+| `FUTU_ENABLE_POSITIONS` | `1` | 是否启用持仓查询工具：`1`（开启）/ `0`（关闭） |
+| `FUTU_ENABLE_TRADING` | `0` | 是否启用交易工具（下单/改单/撤单）：`1`（开启）/ `0`（关闭，安全默认） |
+| `OPEND_PATH` | - | 可选，FutuOpenD 可执行文件所在目录，设置后可自动启动 OpenD |
+
+> ⚠️ **安全提示**：`FUTU_ENABLE_TRADING=0` 默认关闭交易权限，如需 AI 代为下单请显式设为 `1`，并充分了解风险。
+
+### 7.2 项目本地 `.env` 配置（从源码运行时使用）
+
+复制 `.env.example` 为 `.env` 并按需修改：
+
+```bash
+cp .env.example .env
+```
+
+`.env` 示例内容：
+
+```dotenv
+# OpenD 连接
+FUTU_HOST=127.0.0.1
+FUTU_PORT=11111
+
+# 功能开关
+FUTU_ENABLE_TRADING=0
+FUTU_ENABLE_POSITIONS=1
+
+# 交易环境
+FUTU_TRADE_ENV=SIMULATE
+FUTU_SECURITY_FIRM=FUTUSECURITIES
+FUTU_TRD_MARKET=HK
+
+# 调试模式（不建议在 MCP 客户端中开启）
+FUTU_DEBUG_MODE=0
+```
+
+### 7.3 OpenClaw Skill 配置
+
 ```json5
 // ~/.openclaw/openclaw.json
 {
@@ -278,7 +346,12 @@ python3 executor.py --call '{"tool": "get_cur_kline", "arguments": {"symbol": "H
         env: {
           FUTU_HOST: "127.0.0.1",
           FUTU_PORT: "11111",
-          OPEND_PATH: "/path/to/opend"  // 可选，用于自动启动 OpenD
+          FUTU_TRADE_ENV: "REAL",          // REAL / SIMULATE
+          FUTU_TRD_MARKET: "HK",           // HK / US / CN
+          FUTU_SECURITY_FIRM: "FUTUSECURITIES",
+          FUTU_ENABLE_POSITIONS: "1",      // 持仓查询
+          FUTU_ENABLE_TRADING: "0",        // 交易操作（谨慎开启）
+          OPEND_PATH: "/path/to/opend"     // 可选，自动启动 OpenD
         }
       }
     }
@@ -288,14 +361,55 @@ python3 executor.py --call '{"tool": "get_cur_kline", "arguments": {"symbol": "H
 
 ---
 
-## 八、决策流程速查
+## 八、使用流程速查
+
+### 8.1 首次接入流程
+
+```
+第一步：确认 OpenD 运行
+   └─ lsof -i :11111  → 看到 FutuOpenD 进程即正常
+
+第二步：安装 MCP Server（如未安装）
+   └─ pipx install futu-stock-mcp-server
+
+第三步：配置 MCP 客户端
+   └─ 将 7.1 节的 JSON 添加到 mcp.json / MCP Settings
+
+第四步：验证连接
+   └─ python3 executor.py --check-env
+
+第五步：开始查询
+   └─ 行情：get_stock_quote / get_market_snapshot
+   └─ 账户：get_account_list / get_funds / get_positions
+```
+
+### 8.2 日常使用决策流程
 
 1. **先做环境检测**：`python3 executor.py --check-env`
 2. **有缺失**：按 2.2 安装缺失依赖
-3. **有股票代码**：用 `get_stock_quote` / `get_market_snapshot` / `get_history_kline` 等
-4. **无股票代码**：用 `get_stock_filter` 按条件筛选
-5. **需订阅**：先 `subscribe` 再查
-6. **出错**：按第六节常见问题排查
+3. **查账户信息**：`get_account_list` → `get_funds` / `get_positions`
+4. **有股票代码**：用 `get_stock_quote` / `get_market_snapshot` / `get_history_kline` 等
+5. **无股票代码**：用 `get_stock_filter` 按条件筛选
+6. **需订阅**：先 `subscribe` 再查
+7. **出错**：按第六节常见问题排查
+
+### 8.3 账户查询示例
+
+```bash
+# 查账户列表
+python3 executor.py --call '{"tool": "get_account_list", "arguments": {}}'
+
+# 查资产（模拟账户）
+python3 executor.py --call '{"tool": "get_funds", "arguments": {}}'
+
+# 查持仓（需 FUTU_ENABLE_POSITIONS=1）
+python3 executor.py --call '{"tool": "get_positions", "arguments": {}}'
+
+# 查持仓列表（带过滤）
+python3 executor.py --call '{"tool": "get_position_list", "arguments": {"trd_env": "REAL"}}'
+```
+
+> 账户类工具的 `trd_env` 参数优先于环境变量 `FUTU_TRADE_ENV`，可临时切换真实/模拟环境。
 
 ---
 
