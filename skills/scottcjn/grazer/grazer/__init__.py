@@ -4,11 +4,28 @@ PyPI package for Python integration
 """
 
 import requests
+import time as _time
 from typing import List, Dict, Optional
 from datetime import datetime
 
 from grazer.imagegen import generate_svg, svg_to_media, generate_template_svg, generate_llm_svg
 from grazer.clawhub import ClawHubClient
+
+# Platform registry — canonical names, URLs, and auth requirements
+PLATFORMS = {
+    "bottube":    {"url": "https://bottube.ai/api/stats",              "auth": False},
+    "moltbook":   {"url": "https://www.moltbook.com/api/v1/posts",     "auth": False},
+    "clawsta":    {"url": "https://clawsta.io/v1/posts",               "auth": True},
+    "fourclaw":   {"url": "https://www.4claw.org/api/v1/boards",       "auth": True},
+    "pinchedin":  {"url": "https://www.pinchedin.com/api/feed",        "auth": True},
+    "clawtasks":  {"url": "https://clawtasks.com/api/bounties",        "auth": True},
+    "clawnews":   {"url": "https://clawnews.io/api/stories",           "auth": True},
+    "agentchan":  {"url": "https://chan.alphakek.ai/api/boards",       "auth": False},
+    "directory":  {"url": "https://directory.ctxly.app/api/services",  "auth": False},
+    "swarmhub":   {"url": "https://swarmhub.onrender.com/api/v1/agents", "auth": False},
+    "clawhub":    {"url": "https://clawhub.ai/api/v1/skills/trending", "auth": False},
+    "clawcities": {"url": "https://clawcities.com",                   "auth": False},
+}
 
 
 class GrazerClient:
@@ -22,6 +39,10 @@ class GrazerClient:
         clawsta_key: Optional[str] = None,
         fourclaw_key: Optional[str] = None,
         clawhub_token: Optional[str] = None,
+        pinchedin_key: Optional[str] = None,
+        clawtasks_key: Optional[str] = None,
+        clawnews_key: Optional[str] = None,
+        agentchan_key: Optional[str] = None,
         llm_url: Optional[str] = None,
         llm_model: str = "gpt-oss-120b",
         llm_api_key: Optional[str] = None,
@@ -33,13 +54,17 @@ class GrazerClient:
         self.clawsta_key = clawsta_key
         self.fourclaw_key = fourclaw_key
         self.clawhub_token = clawhub_token
+        self.pinchedin_key = pinchedin_key
+        self.clawtasks_key = clawtasks_key
+        self.clawnews_key = clawnews_key
+        self.agentchan_key = agentchan_key
         self._clawhub = ClawHubClient(token=clawhub_token, timeout=timeout) if clawhub_token else ClawHubClient(timeout=timeout)
         self.llm_url = llm_url
         self.llm_model = llm_model
         self.llm_api_key = llm_api_key
         self.timeout = timeout
         self.session = requests.Session()
-        self.session.headers.update({"User-Agent": "Grazer/1.3.0 (Elyan Labs)"})
+        self.session.headers.update({"User-Agent": "Grazer/1.7.0 (Elyan Labs)"})
 
     # ───────────────────────────────────────────────────────────
     # BoTTube
@@ -108,7 +133,7 @@ class GrazerClient:
 
         resp = self.session.post(
             "https://www.moltbook.com/api/v1/posts",
-            json={"content": content, "title": title, "submolt": submolt},
+            json={"content": content, "title": title, "submolt_name": submolt},
             headers={
                 "Authorization": f"Bearer {self.moltbook_key}",
                 "Content-Type": "application/json",
@@ -473,36 +498,81 @@ class GrazerClient:
     # AgentChan (chan.alphakek.ai)
     # ───────────────────────────────────────────────────────────
 
-    def discover_agentchan(self, limit: int = 20) -> List[Dict]:
-        """Get recent posts from AgentChan anonymous imageboard."""
+    def _agentchan_headers(self) -> Dict:
+        headers = {"Content-Type": "application/json"}
+        if self.agentchan_key:
+            headers["Authorization"] = f"Bearer {self.agentchan_key}"
+        return headers
+
+    def discover_agentchan(self, board: str = "ai", limit: int = 20) -> List[Dict]:
+        """Get threads from an AgentChan board catalog."""
         try:
             resp = self.session.get(
-                f"https://chan.alphakek.ai/api/recent.json?limit={limit}",
+                f"https://chan.alphakek.ai/api/boards/{board}/catalog",
                 timeout=self.timeout,
             )
             resp.raise_for_status()
             data = resp.json()
-            return data.get("posts", []) if isinstance(data, dict) else data
+            threads = data.get("data", []) if isinstance(data, dict) else data
+            return threads[:limit]
         except Exception:
             return []
 
-    def post_agentchan(self, board: str, content: str, subject: Optional[str] = None,
-                       name: Optional[str] = None, reply_to: Optional[int] = None,
-                       image_url: Optional[str] = None) -> Optional[Dict]:
-        """Post to AgentChan. New threads require image_url from approved domains."""
-        form = {"board": board, "com": content}
-        if reply_to:
-            form["resto"] = str(reply_to)
-        if subject:
-            form["sub"] = subject
+    def list_agentchan_boards(self) -> List[Dict]:
+        """List all available AgentChan boards."""
+        try:
+            resp = self.session.get(
+                "https://chan.alphakek.ai/api/boards",
+                timeout=self.timeout,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            return data.get("data", []) if isinstance(data, dict) else data
+        except Exception:
+            return []
+
+    def post_agentchan(self, board: str, content: str, name: Optional[str] = None,
+                       reply_to: Optional[int] = None) -> Optional[Dict]:
+        """Post to AgentChan. Creates a new thread or replies to an existing one.
+
+        Args:
+            board: Board code (e.g. 'ai', 'dev', 'b')
+            content: Post content
+            name: Display name (optional, supports tripcodes with #)
+            reply_to: Thread ID to reply to (omit to create new thread)
+        """
+        payload: Dict = {"content": content}
         if name:
-            form["name"] = name
-        if image_url:
-            form["image_url"] = image_url
+            payload["name"] = name
+        try:
+            if reply_to:
+                url = f"https://chan.alphakek.ai/api/boards/{board}/threads/{reply_to}/posts"
+            else:
+                url = f"https://chan.alphakek.ai/api/boards/{board}/threads"
+            resp = self.session.post(
+                url,
+                headers=self._agentchan_headers(),
+                json=payload,
+                timeout=self.timeout,
+            )
+            return resp.json() if resp.ok else None
+        except Exception:
+            return None
+
+    def register_agentchan(self, label: str) -> Optional[Dict]:
+        """Register a new agent on AgentChan and get an API key.
+
+        Args:
+            label: Agent name/label for registration
+
+        Returns:
+            Dict with 'agent.api_key' — save this immediately, shown only once.
+        """
         try:
             resp = self.session.post(
-                "https://chan.alphakek.ai/api/post.php",
-                data=form,
+                "https://chan.alphakek.ai/api/register",
+                headers={"Content-Type": "application/json"},
+                json={"label": label},
                 timeout=self.timeout,
             )
             return resp.json() if resp.ok else None
@@ -510,55 +580,375 @@ class GrazerClient:
             return None
 
     # ───────────────────────────────────────────────────────────
+    # PinchedIn (pinchedin.com) — Professional network for bots
+    # ───────────────────────────────────────────────────────────
+
+    def _pinchedin_headers(self) -> Dict:
+        if not self.pinchedin_key:
+            raise ValueError("PinchedIn API key required")
+        return {"Authorization": f"Bearer {self.pinchedin_key}", "Content-Type": "application/json"}
+
+    def discover_pinchedin(self, limit: int = 20) -> List[Dict]:
+        """Discover posts from PinchedIn feed."""
+        resp = self.session.get(
+            "https://www.pinchedin.com/api/feed",
+            params={"limit": limit},
+            headers=self._pinchedin_headers(),
+            timeout=self.timeout,
+        )
+        resp.raise_for_status()
+        return resp.json().get("posts", [])
+
+    def discover_pinchedin_bots(self, limit: int = 20) -> List[Dict]:
+        """Discover bots registered on PinchedIn."""
+        resp = self.session.get(
+            "https://www.pinchedin.com/api/bots",
+            params={"limit": limit},
+            headers=self._pinchedin_headers(),
+            timeout=self.timeout,
+        )
+        resp.raise_for_status()
+        return resp.json().get("bots", [])
+
+    def discover_pinchedin_jobs(self, limit: int = 20) -> List[Dict]:
+        """Browse job listings on PinchedIn."""
+        resp = self.session.get(
+            "https://www.pinchedin.com/api/jobs",
+            params={"limit": limit},
+            headers=self._pinchedin_headers(),
+            timeout=self.timeout,
+        )
+        resp.raise_for_status()
+        return resp.json().get("jobs", [])
+
+    def post_pinchedin(self, content: str) -> Dict:
+        """Create a post on PinchedIn (3/day limit)."""
+        resp = self.session.post(
+            "https://www.pinchedin.com/api/posts",
+            json={"content": content},
+            headers=self._pinchedin_headers(),
+            timeout=self.timeout,
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+    def like_pinchedin(self, post_id: str) -> Dict:
+        """Like a PinchedIn post."""
+        resp = self.session.post(
+            f"https://www.pinchedin.com/api/posts/{post_id}/like",
+            headers=self._pinchedin_headers(),
+            timeout=self.timeout,
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+    def comment_pinchedin(self, post_id: str, content: str) -> Dict:
+        """Comment on a PinchedIn post."""
+        resp = self.session.post(
+            f"https://www.pinchedin.com/api/posts/{post_id}/comment",
+            json={"content": content},
+            headers=self._pinchedin_headers(),
+            timeout=self.timeout,
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+    def connect_pinchedin(self, target_bot_id: str) -> Dict:
+        """Send a connection request (10/day limit)."""
+        resp = self.session.post(
+            "https://www.pinchedin.com/api/connections/request",
+            json={"targetBotId": target_bot_id},
+            headers=self._pinchedin_headers(),
+            timeout=self.timeout,
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+    def post_pinchedin_job(self, title: str, description: str, requirements: Optional[List[str]] = None,
+                           compensation: Optional[str] = None) -> Dict:
+        """Post a public job listing on PinchedIn."""
+        body = {"title": title, "description": description}
+        if requirements:
+            body["requirements"] = requirements
+        if compensation:
+            body["compensation"] = compensation
+        resp = self.session.post(
+            "https://www.pinchedin.com/api/jobs",
+            json=body,
+            headers=self._pinchedin_headers(),
+            timeout=self.timeout,
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+    def hire_pinchedin(self, target_bot_id: str, message: str, title: str = "",
+                       description: str = "", requirements: Optional[List[str]] = None,
+                       compensation: Optional[str] = None) -> Dict:
+        """Send a hiring request to a specific bot."""
+        body = {"targetBotId": target_bot_id, "message": message}
+        task_details = {}
+        if title:
+            task_details["title"] = title
+        if description:
+            task_details["description"] = description
+        if requirements:
+            task_details["requirements"] = requirements
+        if compensation:
+            task_details["compensation"] = compensation
+        if task_details:
+            body["taskDetails"] = task_details
+        resp = self.session.post(
+            "https://www.pinchedin.com/api/hiring/request",
+            json=body,
+            headers=self._pinchedin_headers(),
+            timeout=self.timeout,
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+    def pinchedin_hiring_inbox(self, status: Optional[str] = None) -> List[Dict]:
+        """Check hiring requests inbox. Status: pending, accepted, rejected, completed."""
+        params = {}
+        if status:
+            params["status"] = status
+        resp = self.session.get(
+            "https://www.pinchedin.com/api/hiring/inbox",
+            params=params,
+            headers=self._pinchedin_headers(),
+            timeout=self.timeout,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        return data.get("requests", data) if isinstance(data, dict) else data
+
+    def pinchedin_hiring_respond(self, request_id: str, status: str) -> Dict:
+        """Respond to a hiring request. Status: accepted, rejected, completed."""
+        resp = self.session.patch(
+            f"https://www.pinchedin.com/api/hiring/{request_id}",
+            json={"status": status},
+            headers=self._pinchedin_headers(),
+            timeout=self.timeout,
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+    # ───────────────────────────────────────────────────────────
+    # ClawTasks (clawtasks.com) — Bounty & task marketplace
+    # ───────────────────────────────────────────────────────────
+
+    def _clawtasks_headers(self) -> Dict:
+        if not self.clawtasks_key:
+            raise ValueError("ClawTasks API key required")
+        return {"Authorization": f"Bearer {self.clawtasks_key}", "Content-Type": "application/json"}
+
+    def discover_clawtasks(self, status: str = "open", limit: int = 20) -> List[Dict]:
+        """Browse bounties on ClawTasks. Use clawtasks.com (not www)."""
+        resp = self.session.get(
+            "https://clawtasks.com/api/bounties",
+            params={"status": status, "limit": limit},
+            headers=self._clawtasks_headers(),
+            timeout=self.timeout,
+        )
+        resp.raise_for_status()
+        return resp.json().get("bounties", [])
+
+    def get_clawtask(self, bounty_id: str) -> Dict:
+        """Get details of a specific bounty."""
+        resp = self.session.get(
+            f"https://clawtasks.com/api/bounties/{bounty_id}",
+            headers=self._clawtasks_headers(),
+            timeout=self.timeout,
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+    def post_clawtask(self, title: str, description: str, tags: Optional[List[str]] = None,
+                      deadline_hours: int = 168) -> Dict:
+        """Post a new bounty on ClawTasks (10 active max)."""
+        body = {"title": title, "description": description, "deadline_hours": deadline_hours}
+        if tags:
+            body["tags"] = tags
+        resp = self.session.post(
+            "https://clawtasks.com/api/bounties",
+            json=body,
+            headers=self._clawtasks_headers(),
+            timeout=self.timeout,
+        )
+        resp.raise_for_status()
+        return resp.json()
+
+    # ───────────────────────────────────────────────────────────
+    # ClawNews (clawnews.io) — AI agent news aggregator
+    # ───────────────────────────────────────────────────────────
+
+    def _clawnews_headers(self) -> Dict:
+        if not self.clawnews_key:
+            raise ValueError("ClawNews API key required")
+        return {"Authorization": f"Bearer {self.clawnews_key}", "Content-Type": "application/json"}
+
+    def discover_clawnews(self, limit: int = 20) -> List[Dict]:
+        """Discover stories from ClawNews."""
+        try:
+            resp = self.session.get(
+                "https://clawnews.io/api/stories",
+                params={"limit": limit},
+                headers=self._clawnews_headers(),
+                timeout=self.timeout,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            return data.get("stories", data) if isinstance(data, dict) else data
+        except Exception:
+            return []
+
+    def post_clawnews(self, headline: str, url: str, summary: str,
+                      tags: Optional[List[str]] = None) -> Optional[Dict]:
+        """Submit a story to ClawNews."""
+        body = {"headline": headline, "url": url, "summary": summary}
+        if tags:
+            body["tags"] = tags
+        try:
+            resp = self.session.post(
+                "https://clawnews.io/api/stories",
+                json=body,
+                headers=self._clawnews_headers(),
+                timeout=self.timeout,
+            )
+            resp.raise_for_status()
+            return resp.json()
+        except Exception:
+            return None
+
+    # ───────────────────────────────────────────────────────────
+    # Platform Health
+    # ───────────────────────────────────────────────────────────
+
+    def platform_status(self, platforms: Optional[List[str]] = None) -> Dict[str, Dict]:
+        """Check reachability and latency for each platform.
+
+        Args:
+            platforms: List of platform names to check (default: all known platforms).
+
+        Returns:
+            Dict mapping platform name to status dict with keys:
+                ok (bool), latency_ms (float), error (str|None), auth_configured (bool)
+        """
+        targets = platforms or list(PLATFORMS.keys())
+        results = {}
+        for name in targets:
+            info = PLATFORMS.get(name)
+            if not info:
+                results[name] = {"ok": False, "latency_ms": 0, "error": "unknown_platform", "auth_configured": False}
+                continue
+
+            auth_configured = self._has_auth(name)
+            url = info["url"]
+            headers = {}
+            if info["auth"] and auth_configured:
+                try:
+                    headers = self._auth_headers_for(name)
+                except Exception:
+                    pass
+
+            t0 = _time.monotonic()
+            try:
+                resp = self.session.get(url, headers=headers, timeout=min(self.timeout, 8), params={"limit": 1})
+                latency = (_time.monotonic() - t0) * 1000
+                results[name] = {
+                    "ok": resp.status_code < 500,
+                    "status_code": resp.status_code,
+                    "latency_ms": round(latency, 1),
+                    "error": None if resp.status_code < 400 else f"HTTP {resp.status_code}",
+                    "auth_configured": auth_configured,
+                }
+            except requests.exceptions.Timeout:
+                latency = (_time.monotonic() - t0) * 1000
+                results[name] = {"ok": False, "latency_ms": round(latency, 1), "error": "timeout", "auth_configured": auth_configured}
+            except requests.exceptions.ConnectionError:
+                latency = (_time.monotonic() - t0) * 1000
+                results[name] = {"ok": False, "latency_ms": round(latency, 1), "error": "connection_refused", "auth_configured": auth_configured}
+            except Exception as e:
+                latency = (_time.monotonic() - t0) * 1000
+                results[name] = {"ok": False, "latency_ms": round(latency, 1), "error": str(e)[:80], "auth_configured": auth_configured}
+
+        return results
+
+    def _has_auth(self, platform: str) -> bool:
+        """Check if authentication is configured for a platform."""
+        mapping = {
+            "bottube": self.bottube_key,
+            "moltbook": self.moltbook_key,
+            "clawcities": self.clawcities_key,
+            "clawsta": self.clawsta_key,
+            "fourclaw": self.fourclaw_key,
+            "pinchedin": self.pinchedin_key,
+            "clawtasks": self.clawtasks_key,
+            "clawnews": self.clawnews_key,
+            "agentchan": self.agentchan_key,
+            "clawhub": self.clawhub_token,
+        }
+        return bool(mapping.get(platform))
+
+    def _auth_headers_for(self, platform: str) -> Dict:
+        """Get auth headers for a specific platform."""
+        key_map = {
+            "moltbook": self.moltbook_key,
+            "clawsta": self.clawsta_key,
+            "fourclaw": self.fourclaw_key,
+            "pinchedin": self.pinchedin_key,
+            "clawtasks": self.clawtasks_key,
+            "clawnews": self.clawnews_key,
+            "agentchan": self.agentchan_key,
+        }
+        key = key_map.get(platform)
+        if key:
+            return {"Authorization": f"Bearer {key}"}
+        return {}
+
+    # ───────────────────────────────────────────────────────────
     # Cross-Platform
     # ───────────────────────────────────────────────────────────
 
     def discover_all(self) -> Dict[str, List[Dict]]:
-        """Discover content from all platforms."""
-        results = {
+        """Discover content from all platforms.
+
+        Returns a dict keyed by platform name. Also includes an ``_errors``
+        key mapping platform names to error strings for any platform that
+        failed during discovery, so callers can distinguish "no content"
+        from "platform unreachable".
+        """
+        results: Dict = {
             "bottube": [],
             "moltbook": [],
             "clawcities": [],
             "clawsta": [],
             "fourclaw": [],
+            "pinchedin": [],
+            "clawtasks": [],
+            "clawnews": [],
             "directory": [],
             "agentchan": [],
+            "_errors": {},
         }
 
-        try:
-            results["bottube"] = self.discover_bottube(limit=10)
-        except Exception:
-            pass
+        calls = [
+            ("bottube",    lambda: self.discover_bottube(limit=10)),
+            ("moltbook",   lambda: self.discover_moltbook(limit=10)),
+            ("clawcities", lambda: self.discover_clawcities(10)),
+            ("clawsta",    lambda: self.discover_clawsta(10)),
+            ("fourclaw",   lambda: self.discover_fourclaw(board="b", limit=10)),
+            ("pinchedin",  lambda: self.discover_pinchedin(limit=10)),
+            ("clawtasks",  lambda: self.discover_clawtasks(limit=10)),
+            ("clawnews",   lambda: self.discover_clawnews(limit=10)),
+            ("directory",  lambda: self.discover_directory(limit=20)),
+            ("agentchan",  lambda: self.discover_agentchan(limit=10)),
+        ]
 
-        try:
-            results["moltbook"] = self.discover_moltbook(limit=10)
-        except Exception:
-            pass
-
-        try:
-            results["clawcities"] = self.discover_clawcities(10)
-        except Exception:
-            pass
-
-        try:
-            results["clawsta"] = self.discover_clawsta(10)
-        except Exception:
-            pass
-
-        try:
-            results["fourclaw"] = self.discover_fourclaw(board="b", limit=10)
-        except Exception:
-            pass
-
-        try:
-            results["directory"] = self.discover_directory(limit=20)
-        except Exception:
-            pass
-
-        try:
-            results["agentchan"] = self.discover_agentchan(limit=10)
-        except Exception:
-            pass
+        for name, fn in calls:
+            try:
+                results[name] = fn()
+            except Exception as exc:
+                results["_errors"][name] = str(exc)[:120]
 
         return results
 
@@ -580,5 +970,5 @@ class GrazerClient:
             pass
 
 
-__version__ = "1.4.0"
+__version__ = "1.7.0"
 __all__ = ["GrazerClient", "ClawHubClient", "generate_svg", "svg_to_media", "generate_template_svg", "generate_llm_svg"]

@@ -5,6 +5,7 @@
 
 import { Command } from 'commander';
 import { GrazerClient } from './index';
+import { ClawHubClient, ClawHubSkill } from './clawhub';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
@@ -24,12 +25,12 @@ function loadConfig(): any {
 program
   .name('grazer')
   .description('Graze for worthy content across social platforms')
-  .version('1.1.0');
+  .version('1.7.0');
 
 program
   .command('discover')
   .description('Discover trending content')
-  .option('-p, --platform <platform>', 'Platform: bottube, moltbook, clawcities, clawsta, fourclaw, all')
+  .option('-p, --platform <platform>', 'Platform: bottube, moltbook, clawcities, clawsta, fourclaw, youtube, all')
   .option('-c, --category <category>', 'BoTTube category')
   .option('-s, --submolt <submolt>', 'Moltbook submolt')
   .option('-b, --board <board>', '4claw board (e.g. b, singularity, crypto)')
@@ -42,6 +43,10 @@ program
       clawcities: config.clawcities?.api_key,
       clawsta: config.clawsta?.api_key,
       fourclaw: config.fourclaw?.api_key,
+      youtube: config.youtube?.api_key,
+      llmUrl: config.llm?.url,
+      llmModel: config.llm?.model,
+      llmApiKey: config.llm?.api_key,
     });
 
     const limit = parseInt(options.limit);
@@ -93,6 +98,16 @@ program
         console.log(`  ${title}`);
         console.log(`    by ${agent} | ${replies} replies | id:${t.id.slice(0, 8)}\n`);
       });
+    } else if (options.platform === 'youtube') {
+      const videos = await client.discoverYouTube({
+        query: options.query,
+        limit,
+      });
+      console.log('\n🎬 YouTube Videos:\n');
+      videos.forEach((v) => {
+        console.log(`  ${v.title}`);
+        console.log(`    by ${v.channelTitle} | ${v.url}\n`);
+      });
     } else if (options.platform === 'all') {
       const all = await client.discoverAll();
       console.log('\n🌐 All Platforms:\n');
@@ -135,6 +150,7 @@ program
       clawcities: config.clawcities?.api_key,
       clawsta: config.clawsta?.api_key,
       fourclaw: config.fourclaw?.api_key,
+      youtube: config.youtube?.api_key,
     });
 
     if (options.platform === 'clawcities') {
@@ -168,6 +184,7 @@ program
     const client = new GrazerClient({
       moltbook: config.moltbook?.api_key,
       fourclaw: config.fourclaw?.api_key,
+      youtube: config.youtube?.api_key,
     });
 
     if (options.platform === 'fourclaw') {
@@ -184,6 +201,66 @@ program
       const result = await client.postMoltbook(options.message, options.title, options.board || 'tech');
       console.log(`\n✓ Posted to m/${options.board || 'tech'}`);
       console.log(`  ID: ${result.id || 'ok'}`);
+    }
+  });
+
+// ── ClawHub commands ──
+
+function formatSkillRow(skill: ClawHubSkill): string {
+  const tags = skill.tags.length > 0 ? skill.tags.join(', ') : '-';
+  const repo = skill.github_repo || '-';
+  return `  ${skill.name}\n    by ${skill.author} | ${skill.downloads} downloads | tags: ${tags}\n    repo: ${repo}\n`;
+}
+
+const clawhub = program
+  .command('clawhub')
+  .description('Discover skills on ClawHub');
+
+clawhub
+  .command('trending')
+  .description('List trending skills on ClawHub')
+  .option('-l, --limit <limit>', 'Number of results', '20')
+  .option('--json', 'Output as JSON')
+  .action(async (options) => {
+    const config = loadConfig();
+    const token = config.clawhub?.token;
+    const client = new ClawHubClient(token);
+    const limit = parseInt(options.limit);
+
+    const skills = await client.getTrendingSkills(limit);
+
+    if (options.json) {
+      console.log(JSON.stringify(skills, null, 2));
+      return;
+    }
+
+    console.log(`\n🔧 ClawHub Trending Skills (${skills.length}):\n`);
+    skills.forEach((s) => console.log(formatSkillRow(s)));
+  });
+
+clawhub
+  .command('search <query>')
+  .description('Search for skills on ClawHub')
+  .option('-l, --limit <limit>', 'Number of results', '20')
+  .option('--json', 'Output as JSON')
+  .action(async (query: string, options) => {
+    const config = loadConfig();
+    const token = config.clawhub?.token;
+    const client = new ClawHubClient(token);
+    const limit = parseInt(options.limit);
+
+    const skills = await client.searchSkills(query, limit);
+
+    if (options.json) {
+      console.log(JSON.stringify(skills, null, 2));
+      return;
+    }
+
+    console.log(`\n🔍 ClawHub Search: "${query}" (${skills.length} results):\n`);
+    if (skills.length === 0) {
+      console.log('  No skills found.\n');
+    } else {
+      skills.forEach((s) => console.log(formatSkillRow(s)));
     }
   });
 

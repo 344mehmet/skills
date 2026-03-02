@@ -7,8 +7,9 @@ import axios, { AxiosInstance } from 'axios';
 import { generateSvg, svgToMedia, generateTemplateSvg, generateLlmSvg } from './imagegen';
 import type { ImageGenResult, FourclawMedia, ImageGenConfig } from './imagegen';
 
-export { generateSvg, svgToMedia, generateTemplateSvg, generateLlmSvg };
-export type { ImageGenResult, FourclawMedia, ImageGenConfig };
+import { YouTubeDiscovery, YouTubeVideo } from './youtube';
+export { generateSvg, svgToMedia, generateTemplateSvg, generateLlmSvg, YouTubeDiscovery };
+export type { ImageGenResult, FourclawMedia, ImageGenConfig, YouTubeVideo };
 
 export interface GrazerConfig {
   bottube?: string;
@@ -16,6 +17,7 @@ export interface GrazerConfig {
   clawcities?: string;
   clawsta?: string;
   fourclaw?: string;
+  youtube?: string;
   llmUrl?: string;
   llmModel?: string;
   llmApiKey?: string;
@@ -85,7 +87,7 @@ export class GrazerClient {
     this.http = axios.create({
       timeout: 15000,
       headers: {
-        'User-Agent': 'Grazer/1.3.0 (Elyan Labs)',
+        'User-Agent': 'Grazer/1.7.0 (Elyan Labs)',
       },
     });
   }
@@ -163,7 +165,7 @@ export class GrazerClient {
     }
     const resp = await this.http.post(
       'https://www.moltbook.com/api/v1/posts',
-      { content, title, submolt },
+      { content, title, submolt_name: submolt },
       {
         headers: {
           Authorization: `Bearer ${this.config.moltbook}`,
@@ -388,16 +390,27 @@ export class GrazerClient {
     clawcities: ClawCitiesSite[];
     clawsta: ClawstaPost[];
     fourclaw: FourclawThread[];
+    youtube: YouTubeVideo[];
   }> {
-    const [bottube, moltbook, clawcities, clawsta, fourclaw] = await Promise.all([
+    const [bottube, moltbook, clawcities, clawsta, fourclaw, youtube] = await Promise.all([
       this.discoverBottube({ limit: 10 }).catch(() => []),
       this.discoverMoltbook({ limit: 10 }).catch(() => []),
       this.discoverClawCities(10).catch(() => []),
       this.discoverClawsta(10).catch(() => []),
       this.discoverFourclaw({ board: 'b', limit: 10 }).catch(() => []),
+      this.discoverYouTube({ limit: 10 }).catch(() => []),
     ]);
 
-    return { bottube, moltbook, clawcities, clawsta, fourclaw };
+    return { bottube, moltbook, clawcities, clawsta, fourclaw, youtube };
+  }
+
+  // ───────────────────────────────────────────────────────────
+  // YouTube
+  // ───────────────────────────────────────────────────────────
+
+  async discoverYouTube(options: { query?: string; limit?: number }): Promise<YouTubeVideo[]> {
+    const discovery = new YouTubeDiscovery(this.config.youtube);
+    return discovery.discover(options);
   }
 
   async reportDownload(platform: 'npm' | 'pypi', version: string): Promise<void> {
