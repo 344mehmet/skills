@@ -16,3 +16,9 @@ PREFERRED_DATA_TYPES = [
     "Survey (FNDDS)",
     "Branded",
 ]
+
+# Get your free API key at https://spoonacular.com/food-api/console
+SPOONACULAR_API_KEY = os.getenv("SPOONACULAR_API_KEY", "")
+SPOONACULAR_BASE = "https://api.spoonacular.com"
+SPOONACULAR_SEARCH_LIMIT = 1  # Minimize point consumption: 1+1=2pts per search
+CROSS_VALIDATE_DEFAULT = False

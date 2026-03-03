@@ -13,7 +13,9 @@ Everything below is based on files currently present in this repo.
 - Main docs / 主要文档: `SKILL.md`, `WORKFLOW.md`, `HOOKS.md`, `references/usda_fdc.md`
 
 ## 2) Key Files and Entry Points / 关键文件与入口
-- `scripts/core.py`: orchestration (`lookup_food`, `lookup_meal`) + translation integration / 主编排逻辑 + 翻译集成
+- `scripts/core.py`: orchestration (`lookup_food`, `lookup_meal`) + Spoonacular routing / 主编排逻辑 + Spoonacular 路由
+- `scripts/spoonacular.py`: Spoonacular API calls + wrapper / Spoonacular API 调用 + 币窗
+- `scripts/usda_fdc.py`: USDA API calls + `USDAError` / USDA API 调用 + 错误类
 - `scripts/usda_fdc.py`: USDA API calls + `USDAError` / USDA API 调用 + 错误类
 - `scripts/parser.py`: text splitting and amount parsing (`ParsedItem`) / 文本分割与份量解析
 - `scripts/units.py`: unit normalization + portion-based gram conversion / 单位标准化 + 基于份量的克数换算
@@ -21,6 +23,8 @@ Everything below is based on files currently present in this repo.
 - `scripts/cache.py`: sqlite cache read/write with TTL / SQLite 缓存读写（含 TTL）
 - `scripts/config.py`: runtime config and env var reads / 运行时配置与环境变量读取
 - `agents/calorie-lookup-decomposer.md`: sub-agent contract for decomposition + translation / Sub-agent 合约（分解 + 翻译）
+- `scripts/cooking.py`: calorie modifiers for 8 cooking methods (steamed, grilled, fried, etc.) / 8 种烹饪方式的热量修正系数
+- `agents/calorie-lookup-image-recognizer.md`: multimodal sub-agent contract for food photo recognition / 图像识别 Sub-agent 合约
 
 Programmatic smoke entry / 编程式冒烟测试入口:
 ```bash
@@ -31,14 +35,18 @@ python -c "from scripts.core import lookup_meal; print(lookup_meal('鸡胸肉200
 - Recommended Python / 推荐 Python: 3.10+
 - Use a virtual environment before running commands / 运行命令前请使用虚拟环境
 - Install deps / 安装依赖: `python -m pip install -r requirements.txt`
+- Spoonacular key / Spoonacular API 密钥: `SPOONACULAR_API_KEY` (optional / 可选)
+- USDA key / USDA API 密钥: `USDA_FDC_API_KEY` (optional / 可选)
 - Cache DB env var / 缓存数据库环境变量: `CALORIE_SKILL_CACHE_DB` (optional / 可选)
+- Cross-validation toggle / 交叉验证开关: `CROSS_VALIDATE_DEFAULT` (optional / 可选, default `False`)
 
 Example / 示例:
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 python -m pip install -r requirements.txt
-export USDA_FDC_API_KEY="<your-key>"
+export SPOONACULAR_API_KEY="<your-spoonacular-key>"
+export USDA_FDC_API_KEY="<your-usda-key>"
 export CALORIE_SKILL_CACHE_DB="./calorie_skill_cache.sqlite3"
 ```
 
@@ -159,13 +167,20 @@ There are currently no additional editor-specific rule files in this repo.
 本仓库目前没有额外的编辑器专用规则文件。
 
 ## 8) Known Repository Caveat / 已知仓库注意事项
-- `scripts/config.py` env var is `USDA_FDC_API_KEY` — must match docs and code / 环境变量为 `USDA_FDC_API_KEY`，文档和代码须一致
+- **Spoonacular is the primary data source** / **Spoonacular 是主数据源**—USDA is automatic fallback / USDA 是自动后备
+- `scripts/config.py` env vars: `SPOONACULAR_API_KEY` (optional / 可选), `USDA_FDC_API_KEY` (optional / 可选) — at least one should be set / 至少配置其中一个
 - If changing runtime config, align code and docs together in one change / 修改运行时配置时，代码和文档须在同一变更中对齐
-- USDA FoodData Central API only supports English queries / USDA API 仅支持英文查询
+- Both Spoonacular and USDA APIs support English queries only / Spoonacular 和 USDA API 都仅支持英文查询
 - **LLM translation (via Decomposer sub-agent) is the primary translation path** for non-English input / **LLM 翻译（通过 Decomposer sub-agent）是非英语输入的主翻译路径**
 - `scripts/translate.py` provides a built-in ~200-entry Chinese→English dictionary as acceleration cache / 提供内置 ~200 条中英字典作为加速缓存
 - The dictionary cannot cover all foods — non-English input should always go through the Decomposer / 字典无法覆盖所有食材，非英语输入应始终走 Decomposer
 - The decomposer contract requires `name` (English) + `name_zh` (original language) in output items / 合约要求输出项包含 `name`（英文）+ `name_zh`（原文）
+- Spoonacular wraps USDA data with better search algorithms—data overlap is expected / Spoonacular 用更好的搜索算法包装 USDA 数据，数据重叠是预期的
+### v0.3 Features / v0.3 新特性
+- **Search Optimization** / **搜索优化**: Added `search_hint` field to Decomposer output and implemented search fallback (Spoonacular → USDA).
+- **Cooking Modifiers** / **烹饪修正**: Integrated `cooking.py` with 8 USDA-cited cooking methods (e.g., fried, roasted).
+- **Cross-Validation** / **交叉验证**: Optional multi-source validation (Spoonacular vs USDA) with 30% warning threshold.
+- **Multimodal Recognition** / **多模态识别**: New Image Recognizer sub-agent using Gemini 3 Pro (primary) / GPT-5.2 (fallback).
 
 ## 9) Change Management Checklist / 变更管理清单
 - Keep edits minimal and scoped to the request / 编辑保持最小化，限定在请求范围内

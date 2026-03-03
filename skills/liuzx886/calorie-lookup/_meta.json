@@ -3,9 +3,15 @@
   "slug": "calorie-lookup",
   "displayName": "Calorie Lookup",
   "latest": {
-    "version": "0.1.0",
-    "publishedAt": 1772346067277,
-    "commit": "https://github.com/openclaw/skills/commit/a6f325ea9f71564b40c586aae8c5bbd0f74a8c26"
+    "version": "0.3.0",
+    "publishedAt": 1772406182744,
+    "commit": null
   },
-  "history": []
+  "history": [
+    {
+      "version": "0.1.0",
+      "publishedAt": 1772346067277,
+      "commit": "https://github.com/openclaw/skills/commit/a6f325ea9f71564b40c586aae8c5bbd0f74a8c26"
+    }
+  ]
 }

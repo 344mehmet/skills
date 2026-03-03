@@ -35,6 +35,7 @@ Core responsibilities: **Translation** (non-English → English) + **Decompositi
 | `name_zh` | string | 原始非英语名称，用于用户展示 / Original non-English name for user display。英语输入时可与 `name` 相同 / May equal `name` for English input |
 | `qty` | number | 数量 / Quantity。缺失时可合理估算并在 notes 说明 / May be estimated if missing (note in `notes`) |
 | `unit` | string | 保留用户原始单位 / Preserves user's original unit（g, ml, 碗, 个等），后续由 `units.py` 换算 / converted later by `units.py` |
+| `search_hint` | string \| null | API-友好的搜索词，用于复合菜 / API-friendly search term for composite dishes（可选 / optional）。当 `name` 是可直接查询的食材时设为 `null` / Set to `null` when `name` is directly queryable |
 
 ## 规则 / Rules
 
@@ -53,11 +54,17 @@ Core responsibilities: **Translation** (non-English → English) + **Decompositi
 - 如果完全无法判断，输出空 `items` 并在 `notes` 提示追问 / If completely unable to determine, output empty `items` and prompt in `notes`
 - `unit` 保留用户原始单位，后续由 `units.py` 换算 / `unit` preserves original user unit; conversion handled later by `units.py`
 
+### Search Hint 规则 / Search Hint Rules
+- 当 `name` 是复合菜或 USDA 无法直接搜索的描述时，提供 `search_hint` / When `name` is a composite dish or USDA-unsearchable description, provide `search_hint`
+- `search_hint` 应该是**最简单、最通用的食材名** / `search_hint` should be the **simplest, most generic ingredient term** (例如 / e.g. `chicken katsu` → `search_hint: "breaded fried chicken"`) 
+- 当 `name` 已是可直接在 USDA 查询的食材时，设 `search_hint: null` / When `name` is already directly USDA-queryable, set `search_hint: null` (例如 / e.g. `chicken breast` → `search_hint: null`)
+- 若 API 使用 `search_hint` 作为备选搜索词时，应能获得更好的匹配结果 / If API uses `search_hint` as fallback query, should achieve better match results
+
 ## 示例 / Examples
 
 ### 简单翻译 / Simple Translation
 - 输入 / Input：`鸡胸肉200g`
-- 输出 / Output：`{"items": [{"name": "chicken breast", "name_zh": "鸡胸肉", "qty": 200, "unit": "g"}], "notes": []}`
+- 输出 / Output：`{"items": [{"name": "chicken breast", "name_zh": "鸡胸肉", "qty": 200, "unit": "g", "search_hint": null}], "notes": []}`
 
 ### 复合菜分解 / Composite Dish Decomposition
 - 输入 / Input：`宫保鸡丁一份`
@@ -65,10 +72,10 @@ Core responsibilities: **Translation** (non-English → English) + **Decompositi
 ```json
 {
   "items": [
-    {"name": "chicken breast", "name_zh": "鸡胸肉", "qty": 200, "unit": "g"},
-    {"name": "peanut", "name_zh": "花生", "qty": 30, "unit": "g"},
-    {"name": "green bell pepper", "name_zh": "青椒", "qty": 50, "unit": "g"},
-    {"name": "vegetable oil", "name_zh": "食用油", "qty": 15, "unit": "ml"}
+    {"name": "chicken breast", "name_zh": "鸡胸肉", "qty": 200, "unit": "g", "search_hint": null},
+    {"name": "peanut", "name_zh": "花生", "qty": 30, "unit": "g", "search_hint": null},
+    {"name": "green bell pepper", "name_zh": "青椒", "qty": 50, "unit": "g", "search_hint": null},
+    {"name": "vegetable oil", "name_zh": "食用油", "qty": 15, "unit": "ml", "search_hint": null}
   ],
   "notes": ["宫保鸡丁按常见一份估算，实际用量因餐厅而异 / Kung Pao Chicken estimated as one standard serving; actual amounts vary by restaurant"]
 }
