@@ -3,9 +3,15 @@
   "slug": "kakiyo",
   "displayName": "Kakiyo Skill",
   "latest": {
-    "version": "1.0.1",
-    "publishedAt": 1769880491867,
-    "commit": "https://github.com/clawdbot/skills/commit/f78460395267dcb106380b973040017577b6c99f"
+    "version": "1.0.4",
+    "publishedAt": 1772528991689,
+    "commit": null
   },
-  "history": []
+  "history": [
+    {
+      "version": "1.0.1",
+      "publishedAt": 1769880491867,
+      "commit": "https://github.com/clawdbot/skills/commit/f78460395267dcb106380b973040017577b6c99f"
+    }
+  ]
 }
