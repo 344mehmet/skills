@@ -1,11 +1,17 @@
 {
   "owner": "moroiser",
   "slug": "openclaw-config-backuper",
-  "displayName": "OpenClaw Config Backuper",
+  "displayName": "OpenClaw Config Backuper | OpenClaw配置备份",
   "latest": {
-    "version": "1.0.0",
-    "publishedAt": 1772341734017,
-    "commit": "https://github.com/openclaw/skills/commit/54129ad51efc4977d56bacafdffbcd4ddae7737b"
+    "version": "1.2.1",
+    "publishedAt": 1772481332433,
+    "commit": null
   },
-  "history": []
+  "history": [
+    {
+      "version": "1.0.0",
+      "publishedAt": 1772341734017,
+      "commit": "https://github.com/openclaw/skills/commit/54129ad51efc4977d56bacafdffbcd4ddae7737b"
+    }
+  ]
 }
