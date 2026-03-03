@@ -1,0 +1,11 @@
+{
+  "owner": "launchthatbot",
+  "slug": "convex-backend",
+  "displayName": "Convex Backend",
+  "latest": {
+    "version": "1.0.4",
+    "publishedAt": 1772567277867,
+    "commit": null
+  },
+  "history": []
+}
