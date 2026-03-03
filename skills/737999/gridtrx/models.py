@@ -315,6 +315,11 @@ def delete_report_item(item_id):
                     raise ValueError(f"Cannot delete: account has {txns['cnt']} transaction line(s)")
         db.execute("DELETE FROM report_items WHERE id=?", (item_id,))
 
+def clear_report_items(report_id):
+    """Delete ALL items from a report. Used by bulk_report_layout replace mode."""
+    with get_db() as db:
+        db.execute("DELETE FROM report_items WHERE report_id=?", (report_id,))
+
 def update_account(account_id, description=None, account_number=None):
     """Update account description and/or account number."""
     with get_db() as db:

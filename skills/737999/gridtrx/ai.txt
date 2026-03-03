@@ -111,12 +111,19 @@ exportcsv IS income.csv 2025-01-01 2025-12-31  # Report to CSV
 - All output is plain text. Parse with string splitting.
 
 ## Account Naming Convention
-- BANK.xxx   Bank accounts (D-normal)
+ALWAYS use GridTRX account names. Never use numeric account codes.
+If the source data has numeric codes (1010, 5800, etc.), ignore the codes and
+map by description to the nearest GridTRX account name. If no match exists,
+create the account using the EX. or REV. prefix convention.
+Always check list_accounts (MCP) or accounts (CLI) first before creating anything.
+
+- BANK.xxx   Bank accounts (D-normal) — e.g. BANK.CDN, BANK.US, BANK.CHQ, BANK.SAV
 - AR.xxx     Accounts receivable (D-normal)
 - AP.xxx     Accounts payable (C-normal)
-- REV.xxx    Revenue (C-normal)
-- EX.xxx     Expenses (D-normal)
-- GST.xxx    Tax accounts
+- REV.xxx    Revenue (C-normal) — e.g. REV, REV.SVC, REV.FOREIGN
+- EX.xxx     Expenses (D-normal) — e.g. EX.PHONE, EX.OFFICE, EX.VEHICLE, EX.WAGES
+- GST.xxx    Tax accounts — e.g. GST.IN, GST.OUT, GST.CLR
+- SHL.xxx    Shareholder loans (C-normal) — e.g. SHL.DANA
 - RE.xxx     Retained earnings (C-normal)
 - EX.SUSP    Suspense — uncategorized transactions land here
 
@@ -174,10 +181,12 @@ the required total accounts are created correctly. Then add/modify accounts
 for the specific client. Never build reports from scratch without the RE chain.
 
 ### Importing Client Data
-When importing a client's existing chart of accounts, preserve the client's
-original account layout and structure. Their previous accountant organized
-accounts logically — don't reorganize. Map client accounts to GridTRX naming
-(BANK.xxx, AR.xxx, etc.) but keep the grouping and ordering intact.
+When importing a client's existing chart of accounts or trial balance, ALWAYS
+map to GridTRX account naming conventions. Never pass through numeric account
+codes (1010, 5800, etc.) — ignore them and map by description. Keep the
+client's grouping and ordering intact, but every account must use GridTRX
+names (BANK.xxx, EX.xxx, REV.xxx, etc.). Check list_accounts first to see
+what already exists before creating new accounts.
 
 ### Validate
 Run `validate` after any report setup to check the chain is intact:

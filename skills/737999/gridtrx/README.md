@@ -190,6 +190,23 @@ Full CLI reference: [CLI_README.txt](CLI_README.txt)
 
 Positive = debit. Parentheses = credit. No sign-flipping. What you see is what's stored.
 
+## Account Naming
+
+GridTRX uses descriptive account names, not numeric codes. When importing a trial balance or creating accounts, always use GridTRX naming conventions. If source data has numeric codes (1010, 5800, etc.), ignore them and map by description.
+
+| Prefix | Type | Examples |
+|--------|------|----------|
+| `BANK.xxx` | Bank accounts | `BANK.CDN`, `BANK.US`, `BANK.CHQ` |
+| `REV.xxx` | Revenue | `REV`, `REV.SVC`, `REV.FOREIGN` |
+| `EX.xxx` | Expenses | `EX.PHONE`, `EX.OFFICE`, `EX.VEHICLE`, `EX.WAGES` |
+| `GST.xxx` | Tax accounts | `GST.IN`, `GST.OUT`, `GST.CLR` |
+| `AR.xxx` | Accounts receivable | `AR` |
+| `AP.xxx` | Accounts payable | `AP`, `AP.CC` |
+| `SHL.xxx` | Shareholder loans | `SHL.DANA` |
+| `RE.xxx` | Retained earnings | `RE`, `RE.OPEN`, `RE.CLOSE` |
+
+If no existing account matches, create one using the `EX.` or `REV.` prefix convention.
+
 ## Browser UI
 
 For visual work, start the web interface:

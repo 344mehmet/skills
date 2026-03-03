@@ -655,6 +655,128 @@ def setup_detailed_ap(db_path: str) -> dict:
     return {"success": True, "message": result}
 
 
+@mcp.tool()
+def bulk_report_layout(
+    db_path: str,
+    report_name: str,
+    items: list[dict],
+    after_account: str = "",
+    mode: str = "append",
+) -> dict:
+    """Place a batch of items on a report in one call, with correct ordering guaranteed.
+
+    Use this after importing a trial balance to lay out 20-60 accounts on the BS/IS
+    in the correct sections with proper positioning, indentation, and total_to wiring.
+
+    Args:
+        report_name: Target report (BS, IS, etc.)
+        items: Ordered list of items. Each dict can have:
+            - account_name (required for account/total items)
+            - item_type: "account" (default), "total", "label", "separator"
+            - indent: indentation level (default 2)
+            - total_to: account name this item rolls up into (sets total_to_1)
+            - description: override display text
+            - sep_style: for separators — "single", "double", "blank"
+        after_account: Anchor — insert the batch after this account on the report.
+            If empty, appends to end (or starts at 10 for replace mode).
+        mode: "append" (default) adds to existing items;
+            "replace" clears all existing items first then inserts.
+    """
+    _init(db_path)
+    if mode not in ("append", "replace"):
+        raise ValueError(f"Invalid mode: '{mode}'. Must be 'append' or 'replace'.")
+
+    report = models.find_report_by_name(report_name)
+    if not report:
+        raise ValueError(f"Report not found: {report_name}")
+    report_id = report["id"]
+
+    # Replace mode: wipe existing items
+    if mode == "replace":
+        models.clear_report_items(report_id)
+
+    # Determine starting position
+    if after_account:
+        existing = models.get_report_items(report_id)
+        anchor_pos = None
+        for item in existing:
+            if item["acct_name"] == after_account:
+                anchor_pos = item["position"]
+                break
+        if anchor_pos is None:
+            raise ValueError(
+                f"after_account '{after_account}' not found on report {report_name}")
+        position = anchor_pos + 5
+    elif mode == "replace":
+        position = 10
+    else:
+        # Append: start after current max
+        existing = models.get_report_items(report_id)
+        max_pos = max((item["position"] for item in existing), default=0)
+        position = max_pos + 10
+
+    placed = 0
+    skipped = 0
+    errors = []
+
+    with models.get_db() as db:
+        for idx, spec in enumerate(items):
+            item_type = spec.get("item_type", "account")
+            indent = spec.get("indent", 2)
+            total_to_1 = spec.get("total_to", "")
+            description = spec.get("description", "")
+            sep_style = spec.get("sep_style", "")
+            account_name = spec.get("account_name", "")
+
+            # Validate item_type
+            if item_type not in ("account", "total", "label", "separator"):
+                errors.append({"index": idx, "reason": f"Invalid item_type: '{item_type}'"})
+                skipped += 1
+                continue
+
+            # Labels and separators don't need an account
+            if item_type in ("label", "separator"):
+                db.execute(
+                    "INSERT INTO report_items(report_id, position, item_type, description, "
+                    "account_id, indent, total_to_1, sep_style) VALUES(?,?,?,?,?,?,?,?)",
+                    (report_id, position, item_type, description, None, indent,
+                     total_to_1, sep_style))
+                position += 10
+                placed += 1
+                continue
+
+            # Account and total types require account_name
+            if not account_name:
+                errors.append({"index": idx, "reason": f"Missing account_name for {item_type} item"})
+                skipped += 1
+                continue
+
+            acct = models.get_account_by_name(account_name)
+            if not acct:
+                errors.append({"index": idx, "reason": f"Account not found: {account_name}"})
+                skipped += 1
+                continue
+
+            db.execute(
+                "INSERT INTO report_items(report_id, position, item_type, description, "
+                "account_id, indent, total_to_1, sep_style) VALUES(?,?,?,?,?,?,?,?)",
+                (report_id, position, item_type, description, acct["id"], indent,
+                 total_to_1, sep_style))
+            position += 10
+            placed += 1
+
+        # Resequence once at the end
+        models._resequence(db, report_id)
+
+    return {
+        "report": report_name,
+        "placed": placed,
+        "skipped": skipped,
+        "errors": errors,
+        "mode": mode,
+    }
+
+
 # ═══════════════════════════════════════════════════════════════════
 # HELPERS (CSV import)
 # ═══════════════════════════════════════════════════════════════════

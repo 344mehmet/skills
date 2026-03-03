@@ -3,9 +3,15 @@
   "slug": "gridtrx",
   "displayName": "GridTRX",
   "latest": {
-    "version": "0.1.17",
-    "publishedAt": 1772478208883,
-    "commit": "https://github.com/openclaw/skills/commit/0a49423d061c8fe75d09694e5e9b8d93f2e1f67e"
+    "version": "0.1.20",
+    "publishedAt": 1772552909157,
+    "commit": null
   },
-  "history": []
+  "history": [
+    {
+      "version": "0.1.17",
+      "publishedAt": 1772478208883,
+      "commit": "https://github.com/openclaw/skills/commit/0a49423d061c8fe75d09694e5e9b8d93f2e1f67e"
+    }
+  ]
 }

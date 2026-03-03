@@ -13,13 +13,16 @@ metadata:
         - GRIDTRX_WORKSPACE
       bins:
         - python3
-        - pip
     primaryEnv: GRIDTRX_WORKSPACE
     files:
       - "*.py"
 ---
 
 # Skill: GridTRX Accounting
+
+## Demo
+
+**[Watch the demo: Full accounting cycle in 15 minutes](https://youtu.be/9mmHbgEB3PQ)**
 
 ## What it does
 
@@ -31,15 +34,25 @@ GridTRX produces a full set of auditable books: balance sheet, income statement,
 
 GridTRX has three interfaces to the same engine (`models.py` → `books.db`):
 
-1. **MCP Server (preferred for agents)** — Structured JSON tools. 19 tools (12 read, 7 write) wrapping `models.py` directly. No text parsing, typed parameters, deterministic output. Requires `pip install mcp`.
+1. **MCP Server (preferred for agents)** — Structured JSON tools. 20 tools (12 read, 8 write) wrapping `models.py` directly. No text parsing, typed parameters, deterministic output.
 2. **CLI (fallback for agents, power users)** — One-shot shell commands via `python cli.py`. Zero dependencies beyond Python 3.7+ standard library. Any terminal-based agent can drive it via subprocess.
 3. **Browser UI (for humans)** — Flask web interface at `localhost:5000` via `python run.py`. Ledger browsing, report viewer with drill-down, comparative reports up to 13 columns, bank import with rule preview, reconciliation marking, dark mode.
 
 All three hit the same `models.py` data layer. Nothing is out of sync. Use MCP when available. Fall back to CLI otherwise. The browser UI is for human review.
 
-### MCP Setup
+### Prerequisites
 
-Requires: `pip install mcp`
+Install dependencies before first use (one-time setup):
+
+```bash
+pip install -r requirements.txt
+```
+
+Or install individually: `pip install mcp` (MCP server), `pip install flask` (browser UI). The CLI has no dependencies beyond the Python 3.7+ standard library.
+
+**No packages are installed at runtime.** All dependencies must be pre-installed.
+
+### MCP Setup
 
 Add to the agent's MCP config with `GRIDTRX_WORKSPACE` set to the user's client folder:
 ```json
@@ -71,7 +84,7 @@ Runs one command, prints plain text to stdout, exits. When `GRIDTRX_WORKSPACE` i
 - **Double-entry:** Every transaction is a balanced zero-sum entry. Debits = Credits. Always.
 - **Sign convention:** Positive = Debit. Parentheses `(1,500.00)` = Credit. `—` = Zero.
 - **Amounts:** Stored as integer cents internally. Displayed as dollars with two decimals.
-- **Account names:** Case-insensitive, UPPER by convention. Common prefixes: `BANK.` `EX.` `REV.` `AR.` `AP.` `GST.` `RE.`
+- **Account names:** Case-insensitive, UPPER by convention. Common prefixes: `BANK.` `EX.` `REV.` `AR.` `AP.` `GST.` `RE.` `SHL.` — When importing a trial balance or creating accounts, ALWAYS use GridTRX naming. Never use numeric account codes. If the source data has numeric codes (1010, 5800, etc.), ignore the codes and map by description to the nearest GridTRX account name. If no match exists, create the account using the `EX.` or `REV.` prefix convention. Always call `list_accounts` first before creating anything.
 - **EX.SUSP (Suspense):** Where unrecognized transactions land. This is the triage queue. Tell the AI what the suspense items are and it will clear them. Or clear them yourself through the GUI.
 - **Import rules:** Keyword → account mappings. Case-insensitive match, highest priority wins. Optional tax code splits the amount into net + tax automatically.
 - **Lock date:** Prevents changes to closed periods. Check before importing historical data.
@@ -167,7 +180,7 @@ If the user uploaded the wrong file or you imported against the wrong account:
 
 There is no bulk undo. Deletions are individual and respect the lock date — you cannot delete transactions in a locked period.
 
-## MCP tools reference (19 tools)
+## MCP tools reference (20 tools)
 
 ### Read tools
 | Tool | Purpose |
@@ -198,6 +211,7 @@ There is no bulk undo. Deletions are individual and respect the lock date — yo
 | `year_end(db_path, ye_date)` | Alias for rollforward |
 | `set_lock_date(db_path, lock_date?)` | Show or set the lock date |
 | `set_ceiling(db_path, date?)` | Show or set the fiscal year ceiling |
+| `bulk_report_layout(db_path, report_name, items, after_account?, mode?)` | Batch-place items on a report (accounts, totals, labels, separators) |
 
 ## Guardrails
 
@@ -208,3 +222,4 @@ There is no bulk undo. Deletions are individual and respect the lock date — yo
 - **RESPECT THE POSTING WINDOW.** Before importing, check the lock date and FY ceiling with `get_info()`. You cannot post on or before the lock date, or after the FY ceiling. Run `rollforward` to advance to the next fiscal year.
 - **PRESERVE RAW OUTPUT.** When presenting financial data to the user, use the exact numbers from GridTRX. Do not round, reformat, or flip signs. Positive = Debit. Parentheses = Credit.
 - **TRIAL BALANCE MUST BALANCE.** After any operation, if the trial balance shows unequal debits and credits, something is wrong. Stop and investigate before proceeding.
+- **LIMIT EXEC SCOPE.** When using exec, only run `python cli.py` commands against books within the workspace. Do not run arbitrary shell commands, install packages, start background processes, or execute scripts other than `cli.py`. The MCP server is the preferred interface — use CLI only when MCP is unavailable.

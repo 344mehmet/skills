@@ -147,12 +147,18 @@ Positive = debit. Parentheses = credit. No sign-flipping.
 
 Account Naming Convention
 -------------------------
-  BANK.xxx    Bank accounts (debit-normal)
+ALWAYS use GridTRX account names. Never use numeric account codes.
+If source data has numeric codes (1010, 5800, etc.), ignore the codes
+and map by description. If no match exists, create using EX. or REV.
+prefix convention. Always run 'accounts' or 'find' first before creating.
+
+  BANK.xxx    Bank accounts (debit-normal) — BANK.CDN, BANK.US, BANK.CHQ
   AR.xxx      Accounts receivable (debit-normal)
   AP.xxx      Accounts payable (credit-normal)
-  REV.xxx     Revenue (credit-normal)
-  EX.xxx      Expenses (debit-normal)
-  GST.xxx     Tax accounts
+  REV.xxx     Revenue (credit-normal) — REV, REV.SVC, REV.FOREIGN
+  EX.xxx      Expenses (debit-normal) — EX.PHONE, EX.OFFICE, EX.VEHICLE
+  GST.xxx     Tax accounts — GST.IN, GST.OUT, GST.CLR
+  SHL.xxx     Shareholder loans (credit-normal) — SHL.DANA
   RE.xxx      Retained earnings (credit-normal)
   EX.SUSP     Suspense — uncategorized transactions land here
 
