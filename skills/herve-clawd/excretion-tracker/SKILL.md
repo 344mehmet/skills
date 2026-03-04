@@ -13,12 +13,25 @@ This skill is **chat-only**: always log via the bundled CLI and store data local
 
 ## 1) What to collect (required vs optional)
 
+### New: Attempt (no output)
+If the user reports **abdominal pain / urge** and **no pee/poop produced** (e.g., “蹲了20分钟都没有产出”), log an `attempt` event with:
+- start time
+- duration
+- pain
+- intent: poop | pee | unknown
+- notes
+
+Do not force color/Bristol when there was no output.
+
 ### Required for every log
-- `type`: pee | poop
+- `type`: pee | poop | attempt (no output)
 - `start_at`: timestamp (default: now)
 - `duration_sec`: integer (if unknown, ask)
 - `pain`: 0–3 (0 none, 1 mild, 2 moderate, 3 severe)
-- `color`: (see below)
+
+### Color requirement
+- For `pee` and `poop`: color is required
+- For `attempt` (no output): color is not required
 
 ### Poop-only
 - `bristol`: 1–7 (ask if poop)

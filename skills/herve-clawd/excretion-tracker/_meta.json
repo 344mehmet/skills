@@ -3,9 +3,15 @@
   "slug": "excretion-tracker",
   "displayName": "Excretion Tracker",
   "latest": {
-    "version": "0.3.3",
-    "publishedAt": 1772379000752,
-    "commit": "https://github.com/openclaw/skills/commit/de164c6086dece1045a60f1bc4f8dee2aeaf98a6"
+    "version": "0.4.0",
+    "publishedAt": 1772613929694,
+    "commit": null
   },
-  "history": []
+  "history": [
+    {
+      "version": "0.3.3",
+      "publishedAt": 1772379000752,
+      "commit": "https://github.com/openclaw/skills/commit/de164c6086dece1045a60f1bc4f8dee2aeaf98a6"
+    }
+  ]
 }

@@ -5,6 +5,7 @@ Usage examples:
   python3 excretion.py init
   python3 excretion.py log pee --start-at "2026-03-01 10:10" --duration-sec 45 --color yellow --pain 0 --notes ""
   python3 excretion.py log poop --start-at "2026-03-01 10:12" --duration-sec 120 --color normal_brown --pain 1 --bristol 4
+  python3 excretion.py log attempt --start-at "2026-03-01 10:30" --duration-sec 1200 --pain 2 --intent poop --notes "abdominal cramps, no output"
   python3 excretion.py week
   python3 excretion.py config set poop_remind_hours 24
   python3 excretion.py config get
@@ -126,8 +127,10 @@ def log_event(args: argparse.Namespace) -> None:
         payload["bristol"] = br
         if args.blood:
             payload["blood"] = args.blood
+    elif typ == "attempt":
+        payload["intent"] = getattr(args, "intent", "unknown")
     else:
-        raise SystemExit("kind must be pee or poop")
+        raise SystemExit("kind must be pee, poop, or attempt")
 
     event_id = uuid()
     con.execute(
@@ -238,6 +241,10 @@ def main():
     poop_p.add_argument("--color", required=True)
     poop_p.add_argument("--bristol", required=True)
     poop_p.add_argument("--blood", default=None, help="none|bright_red|dark|unknown")
+
+    attempt_p = log_sub.add_parser("attempt")
+    add_common(attempt_p)
+    attempt_p.add_argument("--intent", default="poop", choices=["poop","pee","unknown"], help="what you were trying to do")
 
     cfg = sub.add_parser("config")
     cfg_sub = cfg.add_subparsers(dest="cfgcmd", required=True)
